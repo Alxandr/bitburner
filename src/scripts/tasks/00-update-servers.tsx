@@ -18,5 +18,5 @@ const getServers = (ns: NS): readonly ServerStatics[] => {
 export async function main(ns: NS): Promise<void> {
   using db = await ServerRepository.open();
   const servers = getServers(ns);
-  db.update(servers);
+  db.update(servers, { clear: true });
 }

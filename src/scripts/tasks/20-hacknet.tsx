@@ -1,4 +1,3 @@
-import { affordable } from "@lib/affordable";
 import type { NS } from "@ns";
 
 type HacknetAction = {
@@ -69,6 +68,13 @@ const getNextAction = (ns: NS): HacknetAction | null => {
 };
 
 export async function main(ns: NS): Promise<void> {
+  const multipliers = ns.getBitNodeMultipliers();
+
+  if (multipliers.HacknetNodeMoney < 0.8) {
+    ns.print("Hacknet node money multiplier is too low");
+    return;
+  }
+
   while (true) {
     const action = getNextAction(ns);
     if (!action) {

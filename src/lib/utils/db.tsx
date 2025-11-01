@@ -1,4 +1,4 @@
-import { type } from "arktype";
+import type { TypeToken } from "./type-token";
 
 type StoreSchema<T extends Record<string, any> = Record<string, any>> = {
   keyPath: string | readonly string[];
@@ -6,7 +6,7 @@ type StoreSchema<T extends Record<string, any> = Record<string, any>> = {
     string,
     { readonly keyPath: string | readonly string[]; unique?: boolean }
   >;
-  type: type.Any<T>;
+  type: TypeToken<T>;
 };
 
 export class Db<T extends Readonly<Record<string, StoreSchema>>>
@@ -64,7 +64,7 @@ export class Db<T extends Readonly<Record<string, StoreSchema>>>
     });
   }
 
-  read<S extends keyof T>(store: S): ReadStore<T[S]["type"]["infer"]> {
+  read<S extends keyof T>(store: S): ReadStore<T[S]["type"]["type"]> {
     const objStore = this.#db
       .transaction(store as string, "readonly")
       .objectStore(store as string);
@@ -72,7 +72,7 @@ export class Db<T extends Readonly<Record<string, StoreSchema>>>
     return new ReadStore(objStore, this.#schema[store]!.type) as any;
   }
 
-  write<S extends keyof T>(store: S): WriteStore<T[S]["type"]["infer"]> {
+  write<S extends keyof T>(store: S): WriteStore<T[S]["type"]["type"]> {
     const tx = this.#db.transaction(store as string, "readwrite");
     const objStore = tx.objectStore(store as string);
 
@@ -86,9 +86,9 @@ export class Db<T extends Readonly<Record<string, StoreSchema>>>
 
 class ReadStore<T> implements Disposable {
   readonly #store: IDBObjectStore;
-  readonly #type: type.Any<T>;
+  readonly #type: TypeToken<T>;
 
-  constructor(store: IDBObjectStore, type: type.Any<T>) {
+  constructor(store: IDBObjectStore, type: TypeToken<T>) {
     this.#store = store;
     this.#type = type;
   }
@@ -108,9 +108,9 @@ class ReadStore<T> implements Disposable {
           resolve(null);
         }
 
-        const parsed = (0, this.#type)(raw);
-        if (parsed instanceof type.errors) {
-          reject(parsed.toTraversalError());
+        const parsed = this.#type.tryCast(raw);
+        if (parsed instanceof Error) {
+          reject(parsed);
         } else {
           resolve(parsed as T);
         }
@@ -146,9 +146,18 @@ class WriteStore<T> extends ReadStore<T> implements Disposable {
   readonly #tx: IDBTransaction;
   #committed = false;
 
-  constructor(tx: IDBTransaction, store: IDBObjectStore, type: type.Any<T>) {
+  constructor(tx: IDBTransaction, store: IDBObjectStore, type: TypeToken<T>) {
     super(store, type);
     this.#tx = tx;
+  }
+
+  clear(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const request = this.store.clear();
+
+      request.addEventListener("error", () => reject(request.error));
+      request.addEventListener("success", () => resolve());
+    });
   }
 
   put(value: T): Promise<void> {

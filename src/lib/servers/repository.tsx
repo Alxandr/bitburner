@@ -20,8 +20,16 @@ export class ServerRepository implements Disposable {
     this.#db = db;
   }
 
-  async update(servers: readonly ServerStatics[]) {
+  async update(
+    servers: readonly ServerStatics[],
+    options: { clear?: true } = {},
+  ) {
     using store = this.#db.write("servers");
+
+    if (options.clear) {
+      await store.clear();
+    }
+
     for (const server of servers) {
       await store.put(server);
     }

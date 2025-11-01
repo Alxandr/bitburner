@@ -1,4 +1,4 @@
-import type { NS, ScriptArg } from "@ns";
+import type { NS } from "@ns";
 
 const SCRIPT_NAME = "scripts/managed/share.js";
 
